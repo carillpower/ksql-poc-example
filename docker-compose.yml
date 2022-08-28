@@ -1,0 +1,130 @@
+
+
+
+---
+version: '2'
+services:
+  ####################
+  mysql:
+    # *-----------------------------*
+    # To connect to the DB: 
+    #   docker-compose exec mysql bash -c 'mysql -u root -p$MYSQL_ROOT_PASSWORD'
+    # *-----------------------------*
+    container_name: demo-mysql1
+    image: quay.io/debezium/example-mysql:1.9
+    ports:
+      - 3306:3306
+    environment:
+      - MYSQL_ROOT_PASSWORD=hahalala
+      - MYSQL_USER=mysqluser
+      - MYSQL_PASSWORD=mysqlpw 
+  ####################
+  zookeeper:
+    container_name: demo-zookeeper1
+    image: debezium/zookeeper:1.9.5.Final
+    ports:
+      - 2181:2181
+      - 2888:2888
+      - 3888:3888
+  ####################
+  broker:
+    container_name: demo-kafka1
+    image: debezium/kafka:1.9.5.Final
+    hostname: kafka1
+    ports:
+      - 9092:9092
+    depends_on:
+      - zookeeper
+    environment:
+     - ZOOKEEPER_CONNECT=zookeeper:2181
+  ####################
+  schema-registry:
+    container_name: demo-schema-registry1
+    image: confluentinc/cp-schema-registry:5.5.1
+    hostname: schema-registry1
+    depends_on:
+      - zookeeper
+      - broker
+    ports:
+      - "8081:8081"
+    environment:
+      SCHEMA_REGISTRY_HOST_NAME: schema-registry1
+      SCHEMA_REGISTRY_LISTENERS: 'http://0.0.0.0:8081'
+      SCHEMA_REGISTRY_KAFKASTORE_BOOTSTRAP_SERVERS: 'PLAINTEXT://broker:9092'
+  ####################
+  my-connect:
+    container_name: demo-connect-1
+    image: shahrilkamaruzzaman/kafka-connect:1.9.5
+    ports:
+      - 8083:8083
+      - 5005:5005
+    depends_on:
+      - broker
+      - mysql
+      - schema-registry
+    environment:
+      BOOTSTRAP_SERVERS: broker:9092
+      GROUP_ID: my-connect
+      CONFIG_STORAGE_TOPIC: my_connect_configs
+      OFFSET_STORAGE_TOPIC: my_connect_offsets
+      STATUS_STORAGE_TOPIC: my_source_connect_statuses
+      KEY_CONVERTER: io.confluent.connect.avro.AvroConverter
+      VALUE_CONVERTER: io.confluent.connect.avro.AvroConverter
+      CONNECT_KEY_CONVERTER_SCHEMA_REGISTRY_URL: http://schema-registry1:8081
+      CONNECT_VALUE_CONVERTER_SCHEMA_REGISTRY_URL: http://schema-registry1:8081
+  ####################
+  ksqldb-server:
+    container_name: demo-ksqldb-server
+    image: confluentinc/ksqldb-server:0.10.0
+    hostname: ksqldb-server
+    depends_on:
+      - broker
+      - schema-registry
+    ports:
+      - "8088:8088"
+    environment:
+      KSQL_CONFIG_DIR: "/etc/ksqldb"
+      KSQL_LOG4J_OPTS: "-Dlog4j.configuration=file:/etc/ksqldb/log4j.properties"
+      KSQL_BOOTSTRAP_SERVERS: "broker:9092"
+      KSQL_HOST_NAME: ksqldb-server
+      KSQL_LISTENERS: "http://0.0.0.0:8088"
+      KSQL_CACHE_MAX_BYTES_BUFFERING: 0
+      KSQL_KSQL_SCHEMA_REGISTRY_URL: "http://schema-registry1:8081"
+  ####################
+  ksqldb-cli:
+    container_name: demo-ksqldb-cli
+    image: confluentinc/ksqldb-cli:0.10.0
+    depends_on:
+      - broker
+      - ksqldb-server
+    entrypoint: /bin/sh
+    environment:
+      KSQL_CONFIG_DIR: "/etc/ksqldb"
+    tty: true
+  # ####################
+  # # elastic:
+  # #   container_name: es0
+  # #   image: docker.elastic.co/elasticsearch/elasticsearch:7.3.0
+  # #   ports:
+  # #    - "9200:9200"
+  # #   environment:
+  # #    - http.host=0.0.0.0
+  # #    - transport.host=127.0.0.1
+  # #    - xpack.security.enabled=false
+  # #    - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
+  ####################
+  ksqldb-ui:
+    container_name: demo-ksqldb-ui
+    image: matsumana/tsujun:0.0.1
+    hostname: ksqldb-ui
+    depends_on:
+      - broker
+      - ksqldb-server
+    ports:
+      - "8080:8080"
+    environment:
+      KSQL_SERVER: "http://ksqldb-server:8088"
+
+
+
+

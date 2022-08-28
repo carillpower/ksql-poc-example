@@ -1,0 +1,38 @@
+
+
+
+
+{
+    "name": "source-inventory-orders-00",
+    "config": {
+        "connector.class": "io.debezium.connector.mysql.MySqlConnector",
+        "tasks.max": "1",
+        "database.hostname": "mysql", 
+        "database.port": "3306",
+        "database.user": "mysqluser",
+        "database.password": "mysqlpw",
+        "database.server.id": "1001",
+        "database.server.name": "dbsvr_name",
+        "table.whitelist": "inventory.orders",
+        "database.include.list": "inventory",
+        "database.history.kafka.bootstrap.servers": "broker:9092", 
+        "database.history.kafka.topic": "dbhistory.inventory" ,
+        "decimal.handling.mode": "double",
+        "include.schema.changes": "true",
+    
+        "transforms": "unwrap,dropTopicPrefix",
+        "transforms.unwrap.type": "io.debezium.transforms.ExtractNewRecordState",
+        "transforms.dropTopicPrefix.type":"org.apache.kafka.connect.transforms.RegexRouter",
+        "transforms.dropTopicPrefix.regex":"dbsvr_name.inventory.(.*)",
+        "transforms.dropTopicPrefix.replacement":"$1",
+    
+        "key.converter": "io.confluent.connect.avro.AvroConverter",
+        "key.converter.schema.registry.url": "http://schema-registry1:8081",
+        "value.converter": "io.confluent.connect.avro.AvroConverter",
+        "value.converter.schema.registry.url": "http://schema-registry1:8081"    
+    }
+}
+
+
+
+
